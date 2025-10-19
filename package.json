@@ -1,0 +1,22 @@
+{
+  "name": "discord-ticket-review-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot with ticket system and review management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["discord", "bot", "tickets", "reviews"],
+  "author": "EFFETTOGFX",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.23.0",
+    "mongodb": "^6.3.0",
+    "mongoose": "^8.0.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
