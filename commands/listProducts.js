@@ -24,8 +24,9 @@ module.exports = {
                 .setTimestamp();
 
             products.forEach((product, index) => {
+                const emoji = product.emoji || '📦'; // Fallback emoji for existing products
                 embed.addFields({
-                    name: `${index + 1}. ${product.name}`,
+                    name: `${index + 1}. ${emoji} ${product.name} (€${product.price})`,
                     value: `Added: <t:${Math.floor(new Date(product.created_at).getTime() / 1000)}:R>`,
                     inline: false
                 });

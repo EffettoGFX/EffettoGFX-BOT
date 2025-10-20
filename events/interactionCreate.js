@@ -581,6 +581,11 @@ async function handleDeleteTicketChannel(interaction, db) {
 async function handleProductSelection(interaction, db) {
     const productName = interaction.values[0];
 
+    // Get product details to show emoji
+    const products = await db.getAllProducts();
+    const selectedProduct = products.find(p => p.name === productName);
+    const emoji = selectedProduct?.emoji || '📦';
+
     // Create rating selection menu
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('select_rating')
@@ -600,7 +605,7 @@ async function handleProductSelection(interaction, db) {
     const embed = new EmbedBuilder()
         .setColor(0x770380)
         .setTitle('⭐ Rate Your Experience')
-        .setDescription(`You selected: **${productName}**\n\nPlease rate your experience with this product.`)
+        .setDescription(`You selected: **${emoji} ${productName}**\n\nPlease rate your experience with this product.`)
         .setFooter({ text: 'Your rating will be saved and may be reviewed by staff' });
 
     await interaction.update({

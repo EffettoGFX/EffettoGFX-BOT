@@ -33,8 +33,9 @@ module.exports = {
                 .setMaxValues(1);
 
             products.forEach(product => {
+                const emoji = product.emoji || '📦'; // Fallback emoji for existing products
                 selectMenu.addOptions({
-                    label: product.name,
+                    label: `${emoji} ${product.name}`,
                     value: product.name,
                     description: `Review ${product.name}`
                 });

@@ -15,12 +15,18 @@ module.exports = {
                 .setDescription('Price of the product in euros')
                 .setRequired(true)
                 .setMinValue(0.01)
+        )
+        .addStringOption(option =>
+            option.setName('emoji')
+                .setDescription('Emoji for the product (e.g., 🎨, 🖼️, ✨)')
+                .setRequired(false)
         ),
 
     async execute(interaction, db) {
         try {
             const productName = interaction.options.getString('name');
             const price = interaction.options.getNumber('price');
+            const emoji = interaction.options.getString('emoji') || '📦'; // Default emoji if none provided
 
             // Check if product already exists
             const existingProducts = await db.getAllProducts();
@@ -33,8 +39,8 @@ module.exports = {
                 });
             }
 
-            // Add product to database with price
-            await db.addProduct(productName, price);
+            // Add product to database with price and emoji
+            await db.addProduct(productName, price, emoji);
 
             const embed = {
                 color: 0x00ff00,
@@ -43,12 +49,17 @@ module.exports = {
                 fields: [
                     {
                         name: 'Product Name',
-                        value: productName,
+                        value: `${emoji} ${productName}`,
                         inline: true
                     },
                     {
                         name: 'Price',
                         value: `€${price.toFixed(2)}`,
+                        inline: true
+                    },
+                    {
+                        name: 'Emoji',
+                        value: emoji,
                         inline: true
                     }
                 ],

@@ -132,11 +132,12 @@ class Database {
     }
 
     // Product methods
-    async addProduct(name, price = null) {
+    async addProduct(name, price = null, emoji = '📦') {
         const products = this.db.collection('products');
         const product = {
             name: name,
             price: price,
+            emoji: emoji,
             created_at: new Date()
         };
 
