@@ -17,6 +17,11 @@ module.exports = {
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildText)
         )
+        .addRoleOption(option =>
+            option.setName('review_role')
+                .setDescription('Role who purchases products')
+                .setRequired(true)
+        )
         .addChannelOption(option =>
             option.setName('ticket_category')
                 .setDescription('Category where tickets will be created')
@@ -40,12 +45,14 @@ module.exports = {
         try {
             const transcriptChannel = interaction.options.getChannel('transcript_channel');
             const ticketChannel = interaction.options.getChannel('ticket_channel');
+            const reviewRole = interaction.options.getRole('review_role');
             const ticketCategory = interaction.options.getChannel('ticket_category');
             const reviewChannel = interaction.options.getChannel('review_channel');
             const paypalLink = interaction.options.getString('paypal_link');
             // Save configuration to database
             await db.setConfig('transcript_channel', transcriptChannel.id);
             await db.setConfig('ticket_channel', ticketChannel.id);
+            await db.setConfig('review_role', reviewRole.id);
             if (ticketCategory) {
                 await db.setConfig('ticket_category', ticketCategory.id);
             }
@@ -111,13 +118,6 @@ module.exports = {
                 });
             }
 
-            if (reviewChannel) {
-                setupEmbed.fields.push({
-                    name: 'Review Channel',
-                    value: `<#${reviewChannel.id}>`,
-                    inline: true
-                });
-            }
 
             await interaction.reply({ embeds: [setupEmbed] });
         } catch (error) {

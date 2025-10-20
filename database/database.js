@@ -127,10 +127,11 @@ class Database {
     }
 
     // Product methods
-    async addProduct(name) {
+    async addProduct(name, price = null) {
         const products = this.db.collection('products');
         const product = {
             name: name,
+            price: price,
             created_at: new Date()
         };
 

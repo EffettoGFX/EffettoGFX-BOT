@@ -24,10 +24,25 @@ module.exports = {
                 });
             }
 
-            // Deauthorize user
+            // Get the review role from configuration
+            const reviewRoleId = await db.getConfig('review_role');
+            if (reviewRoleId) {
+                // Get the role object
+                const reviewRole = interaction.guild.roles.cache.get(reviewRoleId);
+                if (reviewRole) {
+                    // Get the member object
+                    const member = interaction.guild.members.cache.get(user.id);
+                    if (member && member.roles.cache.has(reviewRoleId)) {
+                        // Remove the role from the user
+                        await member.roles.remove(reviewRole);
+                    }
+                }
+            }
+
+            // Deauthorize user from database
             const result = await db.deauthorizeUser(user.id);
 
-            if (result === 0) {
+            if (result.deletedCount === 0) {
                 return await interaction.reply({
                     content: '❌ Failed to deauthorize the user.',
                     flags: 64
@@ -37,7 +52,7 @@ module.exports = {
             const embed = {
                 color: 0xff6b6b,
                 title: '✅ User Deauthorized',
-                description: `${user} has been deauthorized from leaving reviews.`,
+                description: `${user} has been deauthorized from leaving reviews and the review role has been removed.`,
                 fields: [
                     {
                         name: 'Deauthorized by',

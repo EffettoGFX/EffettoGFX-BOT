@@ -9,11 +9,18 @@ module.exports = {
             option.setName('name')
                 .setDescription('Name of the product to add')
                 .setRequired(true)
+        )
+        .addNumberOption(option =>
+            option.setName('price')
+                .setDescription('Price of the product in euros')
+                .setRequired(true)
+                .setMinValue(0.01)
         ),
 
     async execute(interaction, db) {
         try {
             const productName = interaction.options.getString('name');
+            const price = interaction.options.getNumber('price');
 
             // Check if product already exists
             const existingProducts = await db.getAllProducts();
@@ -26,13 +33,25 @@ module.exports = {
                 });
             }
 
-            // Add product to database
-            await db.addProduct(productName);
+            // Add product to database with price
+            await db.addProduct(productName, price);
 
             const embed = {
                 color: 0x00ff00,
                 title: '✅ Product Added',
                 description: `Product "${productName}" has been added to the review system.`,
+                fields: [
+                    {
+                        name: 'Product Name',
+                        value: productName,
+                        inline: true
+                    },
+                    {
+                        name: 'Price',
+                        value: `€${price.toFixed(2)}`,
+                        inline: true
+                    }
+                ],
                 timestamp: new Date().toISOString()
             };
 

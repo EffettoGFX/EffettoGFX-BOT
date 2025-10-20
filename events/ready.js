@@ -7,6 +7,6 @@ module.exports = {
         console.log(`👥 Serving ${client.users.cache.size} users`);
 
         // Set bot status
-        client.user.setActivity('Managing tickets and reviews', { type: 'WATCHING' });
+        client.user.setActivity('EFFETTO Productions', { type: 'WATCHING' });
     }
 };
