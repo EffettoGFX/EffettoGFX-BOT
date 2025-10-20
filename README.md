@@ -68,7 +68,13 @@ A comprehensive Discord bot built with Discord.js v14+ featuring a ticket system
 
 ## Bot Setup
 
-1. **Invite the bot** to your server with the following permissions:
+1. **Set up environment variables**:
+
+   - Copy `env.example` to `.env`
+   - Fill in your bot token, client ID, and MongoDB connection string
+   - Server-specific settings (channels, roles) are configured via `/setup` command
+
+2. **Invite the bot** to your server with the following permissions:
 
    - Manage Channels
    - Send Messages
@@ -76,20 +82,25 @@ A comprehensive Discord bot built with Discord.js v14+ featuring a ticket system
    - Use Slash Commands
    - Manage Roles (for permission checks)
 
-2. **Configure the bot** using `/setup`:
+3. **Configure the bot** using `/setup`:
 
    ```
-   /setup transcript_channel:#transcripts ticket_category:Tickets
+   /setup transcript_channel:#transcripts ticket_channel:#support review_role:@Customer ticket_category:Tickets
    ```
 
-3. **Add products** for review:
+   **Configuration Storage:**
+
+   - **Environment Variables (.env)**: Bot token, database connection, role IDs
+   - **Database (via /setup)**: Server-specific channels, roles, and settings
+
+4. **Add products** for review:
 
    ```
    /addproduct "Premium Package"
    /addproduct "Basic Package"
    ```
 
-4. **Authorize users** to leave reviews:
+5. **Authorize users** to leave reviews:
    ```
    /authorizereview @user
    ```
@@ -158,7 +169,7 @@ discord-ticket-review-bot/
 │   └── database.js
 ├── index.js           # Main bot file
 ├── package.json       # Dependencies
-├── config.json        # Configuration
+├── .env               # Environment variables (create from env.example)
 └── README.md          # This file
 ```
 

@@ -9,9 +9,14 @@ class Database {
 
     async connect() {
         try {
-            // Try environment variable first, then config.json
-            const config = require('../config.json');
-            const uri = process.env.MONGODB_URI || config.database.uri || 'mongodb://localhost:27017/discord-bot';
+            // Use environment variable for MongoDB URI
+            const uri = process.env.MONGODB_URI;
+
+            if (!uri) {
+                throw new Error('MONGODB_URI environment variable is required but not set');
+            }
+
+            console.log('🔗 Connecting to MongoDB...');
             this.client = new MongoClient(uri);
 
             await this.client.connect();
