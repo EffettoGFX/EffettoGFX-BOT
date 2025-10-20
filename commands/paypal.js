@@ -12,7 +12,7 @@ module.exports = {
             const paypalLink = await db.getConfig('paypal_link');
 
             const embed = new EmbedBuilder()
-                .setColor(0x0099ff)
+                .setColor(0x770380)
                 .setTitle('💰 Paypal Link')
                 .setDescription(`** GRAZIE PER IL TUO ACQUISTO!**\n\nPer completare correttamente la procedura, segui attentamente questi passaggi:\n\n1️⃣ Clicca su questo link 👉 [PAYPAL](${paypalLink})\n2️⃣ Inserisci **l’importo esatto** relativo al tuo acquisto\n3️⃣ Seleziona l’opzione **“Amici e parenti”**\n\n  ⚠️ ATTENZIONE: Se selezioni una modalità diversa, **non ci assumeremo alcuna responsabilità** e **il versamento non verrà considerato valido**.\n\n4️⃣ Dopo il pagamento, **allega uno screen come prova** per velocizzare la verifica e l'elaborazione dell’ordine ✅\nGrazie per aver scelto il nostro shop! 🛒`);
 

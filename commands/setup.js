@@ -65,7 +65,7 @@ module.exports = {
 
             // Create ticket channel embed
             const ticketEmbed = new EmbedBuilder()
-                .setColor(0x0099ff)
+                .setColor(0x770380)
                 .setTitle('🎫 Support Tickets')
                 .setDescription('Need help? Open a support ticket and our staff will assist you!')
                 .addFields(

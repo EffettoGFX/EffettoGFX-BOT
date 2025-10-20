@@ -61,7 +61,7 @@ module.exports = {
 
             // Create welcome embed
             const welcomeEmbed = new EmbedBuilder()
-                .setColor(0x0099ff)
+                .setColor(0x770380)
                 .setTitle('🎫 Support Ticket')
                 .setDescription(`Hello ${interaction.user}! Your support ticket has been created. Please describe your issue and our staff will assist you shortly.`)
                 .addFields(

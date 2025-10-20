@@ -70,7 +70,7 @@ module.exports = {
                     const productPrice = product ? product.price : null;
 
                     const reviewEmbed = {
-                        color: 0x0099ff,
+                        color: 0x770380,
                         title: `⭐ New Review: ${productName}`,
                         description: description,
                         fields: [

@@ -18,7 +18,7 @@ module.exports = {
             }
 
             const embed = new EmbedBuilder()
-                .setColor(0x0099ff)
+                .setColor(0x770380)
                 .setTitle('📦 Available Products')
                 .setDescription('Here are all the products available for review:')
                 .setTimestamp();

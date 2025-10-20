@@ -64,43 +64,7 @@ for (const file of eventFiles) {
     console.log(`✅ Loaded event: ${event.name}`);
 }
 
-// Handle slash command interactions
-client.on('interactionCreate', async interaction => {
-    console.log('🔍 [DEBUG] Interaction received:', interaction.type);
-
-    if (!interaction.isChatInputCommand()) return;
-
-    console.log('🔍 [DEBUG] Slash command:', interaction.commandName);
-    console.log('🔍 [DEBUG] User:', interaction.user.tag);
-    console.log('🔍 [DEBUG] Channel:', interaction.channel.name);
-
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) {
-        console.error(`❌ [ERROR] No command matching ${interaction.commandName} was found.`);
-        return;
-    }
-
-    console.log('🔍 [DEBUG] Executing command:', interaction.commandName);
-    try {
-        await command.execute(interaction, db);
-        console.log('✅ [SUCCESS] Command executed successfully:', interaction.commandName);
-    } catch (error) {
-        console.error(`❌ [ERROR] Error executing ${interaction.commandName}:`, error);
-        console.error('❌ [ERROR] Stack trace:', error.stack);
-
-        const errorMessage = {
-            content: '❌ There was an error while executing this command!',
-            flags: 64
-        };
-
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(errorMessage);
-        } else {
-            await interaction.reply(errorMessage);
-        }
-    }
-});
+// All interactions are now handled in events/interactionCreate.js
 
 // Register slash commands
 async function deployCommands() {

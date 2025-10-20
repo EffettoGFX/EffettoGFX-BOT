@@ -3,6 +3,39 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelect
 module.exports = {
     name: 'interactionCreate',
     async execute(interaction, db) {
+        // Handle slash commands
+        if (interaction.isChatInputCommand()) {
+            const { client } = require('../index');
+            const command = client.commands.get(interaction.commandName);
+
+            if (!command) {
+                console.error(`❌ [ERROR] No command matching ${interaction.commandName} was found.`);
+                return;
+            }
+
+            console.log('🔍 [DEBUG] Executing command:', interaction.commandName);
+            try {
+                await command.execute(interaction, db);
+                console.log('✅ [SUCCESS] Command executed successfully:', interaction.commandName);
+            } catch (error) {
+                console.error(`❌ [ERROR] Error executing ${interaction.commandName}:`, error);
+                console.error('❌ [ERROR] Stack trace:', error.stack);
+
+                const errorMessage = {
+                    content: '❌ There was an error while executing this command!',
+                    flags: 64
+                };
+
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp(errorMessage);
+                } else {
+                    await interaction.reply(errorMessage);
+                }
+            }
+            return;
+        }
+
+        // Handle buttons and select menus
         if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
 
         try {
@@ -450,7 +483,7 @@ async function handleOpenTicket(interaction, db) {
 
         // Create welcome embed
         const welcomeEmbed = new EmbedBuilder()
-            .setColor(0x0099ff)
+            .setColor(0x770380)
             .setTitle('🎫 Support Ticket')
             .setDescription(`Hello ${interaction.user}! Your support ticket has been created. Please describe your issue and our staff will assist you shortly.`)
             .addFields(
@@ -565,7 +598,7 @@ async function handleProductSelection(interaction, db) {
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
     const embed = new EmbedBuilder()
-        .setColor(0x0099ff)
+        .setColor(0x770380)
         .setTitle('⭐ Rate Your Experience')
         .setDescription(`You selected: **${productName}**\n\nPlease rate your experience with this product.`)
         .setFooter({ text: 'Your rating will be saved and may be reviewed by staff' });
@@ -581,7 +614,7 @@ async function handleRatingSelection(interaction, db) {
 
     // Store the rating and product for the description step
     const embed = new EmbedBuilder()
-        .setColor(0x0099ff)
+        .setColor(0x770380)
         .setTitle('📝 Write Your Review')
         .setDescription(`Please write a description of your experience with this product.\n\n**Rating:** ${'⭐'.repeat(rating)}\n\nType your review in the chat and I'll save it.`)
         .setFooter({ text: 'Your review will be submitted for staff approval' });

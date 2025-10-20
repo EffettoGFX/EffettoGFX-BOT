@@ -43,7 +43,7 @@ module.exports = {
             const row = new ActionRowBuilder().addComponents(selectMenu);
 
             const embed = new EmbedBuilder()
-                .setColor(0x0099ff)
+                .setColor(0x770380)
                 .setTitle('⭐ Leave a Review')
                 .setDescription('Please select a product to review from the dropdown below.')
                 .setFooter({ text: 'You can only review products you have purchased' });
