@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 module.exports = {
     name: 'interactionCreate',
@@ -31,6 +31,18 @@ module.exports = {
                 } else {
                     await interaction.reply(errorMessage);
                 }
+            }
+            return;
+        }
+
+        // Handle modal submissions
+        if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'review_phase1_modal') {
+                await handleReviewPhase1(interaction, db);
+            } else if (interaction.customId === 'review_phase2_modal') {
+                await handleReviewPhase2(interaction, db);
+            } else if (interaction.customId === 'review_phase3_modal') {
+                await handleReviewPhase3(interaction, db);
             }
             return;
         }
@@ -636,4 +648,173 @@ async function handleRatingSelection(interaction, db) {
         rating: rating,
         userId: interaction.user.id
     });
+}
+
+// New 3-Phase Review System
+async function handleReviewPhase1(interaction, db) {
+    try {
+        const selectedProduct = interaction.fields.getTextInputValue('selected_product');
+
+        // Validate product exists
+        const products = await db.getAllProducts();
+        const product = products.find(p => p.name.toLowerCase() === selectedProduct.toLowerCase());
+
+        if (!product) {
+            return await interaction.reply({
+                content: `❌ Product "${selectedProduct}" not found. Please check the spelling and try again.`,
+                flags: 64,
+                ephemeral: true
+            });
+        }
+
+        // Store product selection temporarily
+        interaction.client.tempReviewData = interaction.client.tempReviewData || new Map();
+        interaction.client.tempReviewData.set(interaction.user.id, {
+            product: product.name,
+            emoji: product.emoji || '📦'
+        });
+
+        // Create Phase 2 Modal - Star Rating
+        const modal = new ModalBuilder()
+            .setCustomId('review_phase2_modal')
+            .setTitle('⭐ Phase 2: Rate Your Experience');
+
+        const ratingInput = new TextInputBuilder()
+            .setCustomId('star_rating')
+            .setLabel('Rate from 0.5 to 5.0 stars (use .5 for half stars):')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('e.g., 4.5 (for 4.5 stars)')
+            .setRequired(true)
+            .setMaxLength(3);
+
+        const actionRow = new ActionRowBuilder().addComponents(ratingInput);
+        modal.addComponents(actionRow);
+
+        await interaction.showModal(modal);
+
+    } catch (error) {
+        console.error('Review Phase 1 error:', error);
+        await interaction.reply({
+            content: '❌ An error occurred in Phase 1.',
+            flags: 64,
+            ephemeral: true
+        });
+    }
+}
+
+async function handleReviewPhase2(interaction, db) {
+    try {
+        const ratingText = interaction.fields.getTextInputValue('star_rating');
+        const rating = parseFloat(ratingText);
+
+        // Validate rating
+        if (isNaN(rating) || rating < 0.5 || rating > 5.0) {
+            return await interaction.reply({
+                content: '❌ Invalid rating. Please enter a number between 0.5 and 5.0 (e.g., 4.5).',
+                flags: 64,
+                ephemeral: true
+            });
+        }
+
+        // Get stored product data
+        const tempData = interaction.client.tempReviewData?.get(interaction.user.id);
+        if (!tempData) {
+            return await interaction.reply({
+                content: '❌ Session expired. Please start the review process again with `/reviews`.',
+                flags: 64,
+                ephemeral: true
+            });
+        }
+
+        // Update temp data with rating
+        tempData.rating = rating;
+        interaction.client.tempReviewData.set(interaction.user.id, tempData);
+
+        // Create Phase 3 Modal - Description
+        const modal = new ModalBuilder()
+            .setCustomId('review_phase3_modal')
+            .setTitle('⭐ Phase 3: Describe Your Experience');
+
+        const descriptionInput = new TextInputBuilder()
+            .setCustomId('review_description')
+            .setLabel('Describe your experience with this product:')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Share your thoughts about the product...')
+            .setRequired(true)
+            .setMaxLength(1000);
+
+        const actionRow = new ActionRowBuilder().addComponents(descriptionInput);
+        modal.addComponents(actionRow);
+
+        await interaction.showModal(modal);
+
+    } catch (error) {
+        console.error('Review Phase 2 error:', error);
+        await interaction.reply({
+            content: '❌ An error occurred in Phase 2.',
+            flags: 64,
+            ephemeral: true
+        });
+    }
+}
+
+async function handleReviewPhase3(interaction, db) {
+    try {
+        const description = interaction.fields.getTextInputValue('review_description');
+
+        // Get stored review data
+        const tempData = interaction.client.tempReviewData?.get(interaction.user.id);
+        if (!tempData) {
+            return await interaction.reply({
+                content: '❌ Session expired. Please start the review process again with `/reviews`.',
+                flags: 64,
+                ephemeral: true
+            });
+        }
+
+        // Create the review
+        await db.createReview(interaction.user.id, tempData.product, tempData.rating, description);
+
+        // Clear temp data
+        interaction.client.tempReviewData.delete(interaction.user.id);
+
+        // Create confirmation embed
+        const stars = '⭐'.repeat(Math.floor(tempData.rating)) + (tempData.rating % 1 === 0.5 ? '⭐' : '');
+        const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('✅ Review Submitted Successfully!')
+            .setDescription(`Thank you for your review!`)
+            .addFields(
+                {
+                    name: 'Product',
+                    value: `${tempData.emoji} ${tempData.product}`,
+                    inline: true
+                },
+                {
+                    name: 'Rating',
+                    value: `${stars} (${tempData.rating}/5)`,
+                    inline: true
+                },
+                {
+                    name: 'Description',
+                    value: description.length > 200 ? description.substring(0, 200) + '...' : description,
+                    inline: false
+                }
+            )
+            .setFooter({ text: 'Your review is pending approval by staff' })
+            .setTimestamp();
+
+        await interaction.reply({
+            embeds: [embed],
+            ephemeral: true
+        });
+
+    } catch (error) {
+        console.error('Review Phase 3 error:', error);
+        await interaction.reply({
+            content: '❌ An error occurred while submitting your review.',
+            flags: 64,
+            ephemeral: true
+        });
+    }
 }

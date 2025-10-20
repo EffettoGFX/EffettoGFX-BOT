@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,35 +25,39 @@ module.exports = {
                 });
             }
 
-            // Create product selection menu
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('select_product')
-                .setPlaceholder('Choose a product to review')
-                .setMinValues(1)
-                .setMaxValues(1);
+            // Create Phase 1 Modal - Product Selection
+            const modal = new ModalBuilder()
+                .setCustomId('review_phase1_modal')
+                .setTitle('⭐ Phase 1: Select Product');
 
-            products.forEach(product => {
-                const emoji = product.emoji || '📦'; // Fallback emoji for existing products
-                selectMenu.addOptions({
-                    label: `${emoji} ${product.name}`,
-                    value: product.name,
-                    description: `Review ${product.name}`
-                });
-            });
+            // Create product selection dropdown as text input with options
+            const productOptions = products.map(product => {
+                const emoji = product.emoji || '📦';
+                return `${emoji} ${product.name}`;
+            }).join('\n');
 
-            const row = new ActionRowBuilder().addComponents(selectMenu);
+            const productInput = new TextInputBuilder()
+                .setCustomId('product_selection')
+                .setLabel('Available Products (copy the exact name):')
+                .setStyle(TextInputStyle.Paragraph)
+                .setValue(productOptions)
+                .setRequired(true)
+                .setMaxLength(1000);
 
-            const embed = new EmbedBuilder()
-                .setColor(0x770380)
-                .setTitle('⭐ Leave a Review')
-                .setDescription('Please select a product to review from the dropdown below.')
-                .setFooter({ text: 'You can only review products you have purchased' });
+            const productNameInput = new TextInputBuilder()
+                .setCustomId('selected_product')
+                .setLabel('Enter the exact product name:')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('e.g., Logo Design')
+                .setRequired(true)
+                .setMaxLength(100);
 
-            await interaction.reply({
-                embeds: [embed],
-                components: [row],
-                ephemeral: true
-            });
+            const firstActionRow = new ActionRowBuilder().addComponents(productInput);
+            const secondActionRow = new ActionRowBuilder().addComponents(productNameInput);
+
+            modal.addComponents(firstActionRow, secondActionRow);
+
+            await interaction.showModal(modal);
 
         } catch (error) {
             console.error('Reviews command error:', error);
