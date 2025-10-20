@@ -26,7 +26,7 @@ module.exports = {
                 },
                 {
                     name: '⭐ Review Commands',
-                    value: '`/reviews` - Leave a review for a product\n`/review` - Submit a review directly',
+                    value: '`/review` - Leave a review for a product (3-phase modal)',
                     inline: false
                 },
                 {

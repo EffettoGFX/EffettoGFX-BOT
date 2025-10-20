@@ -681,7 +681,7 @@ async function handleReviewPhase1(interaction, db) {
 
         const ratingInput = new TextInputBuilder()
             .setCustomId('star_rating')
-            .setLabel('Rate from 0.5 to 5.0 stars (use .5 for half stars):')
+            .setLabel('Rating (0.5-5.0 stars):')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('e.g., 4.5 (for 4.5 stars)')
             .setRequired(true)
@@ -737,7 +737,7 @@ async function handleReviewPhase2(interaction, db) {
 
         const descriptionInput = new TextInputBuilder()
             .setCustomId('review_description')
-            .setLabel('Describe your experience with this product:')
+            .setLabel('Describe your experience:')
             .setStyle(TextInputStyle.Paragraph)
             .setPlaceholder('Share your thoughts about the product...')
             .setRequired(true)
