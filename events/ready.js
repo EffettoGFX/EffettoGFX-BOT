@@ -1,3 +1,5 @@
+const { ActivityType } = require('discord.js');
+
 module.exports = {
     name: 'clientReady',
     once: true,
@@ -7,6 +9,6 @@ module.exports = {
         console.log(`👥 Serving ${client.users.cache.size} users`);
 
         // Set bot status
-        client.user.setActivity('EFFETTO Productions', { type: 'WATCHING' });
+        client.user.setActivity('EFFETTO Productions', { type: ActivityType.Watching });
     }
 };
