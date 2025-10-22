@@ -72,7 +72,7 @@ module.exports = {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket Transcript #${ticket.id}</title>
+    <title>Ticket Transcript #${ticket._id}</title>
     <style>
         * {
             margin: 0;
@@ -357,7 +357,7 @@ module.exports = {
             <div class="ticket-info">
                 <div class="info-item">
                     <div class="info-label">Ticket ID</div>
-                    <div class="info-value">#${ticket.id}</div>
+                    <div class="info-value">#${ticket._id}</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">User</div>
@@ -525,7 +525,7 @@ module.exports = {
                 color: 0xff6b6b,
                 title: '📄 Ticket Transcript',
                 fields: [
-                    { name: 'Ticket ID', value: ticket.id.toString(), inline: true },
+                    { name: 'Ticket ID', value: ticket._id.toString(), inline: true },
                     { name: 'User', value: `<@${ticket.user_id}>`, inline: true },
                     { name: 'Closed by', value: interaction.user.toString(), inline: true },
                     { name: 'Created', value: `<t:${Math.floor(new Date(ticket.created_at).getTime() / 1000)}:F>`, inline: true },
@@ -553,7 +553,7 @@ module.exports = {
                         embeds: [transcriptEmbed],
                         files: [{
                             attachment: transcript,
-                            name: `ticket-${ticket.id}-transcript.html`
+                            name: `ticket-${ticket._id}-transcript.html`
                         }]
                     });
                     console.log('✅ [SUCCESS] HTML transcript sent successfully');
@@ -566,7 +566,7 @@ module.exports = {
                 // Create a simple text transcript as fallback
                 const messages = await interaction.channel.messages.fetch({ limit: 100 });
                 let textTranscript = `# Ticket Transcript\n\n`;
-                textTranscript += `**Ticket ID:** ${ticket.id}\n`;
+                textTranscript += `**Ticket ID:** ${ticket._id}\n`;
                 textTranscript += `**User:** <@${ticket.user_id}>\n`;
                 textTranscript += `**Closed by:** ${interaction.user}\n`;
                 textTranscript += `**Created:** <t:${Math.floor(new Date(ticket.created_at).getTime() / 1000)}:F>\n`;
@@ -592,7 +592,7 @@ module.exports = {
                         embeds: [transcriptEmbed],
                         files: [{
                             attachment: Buffer.from(textTranscript, 'utf8'),
-                            name: `ticket-${ticket.id}-transcript.txt`
+                            name: `ticket-${ticket._id}-transcript.txt`
                         }]
                     });
                     console.log('✅ [SUCCESS] Text transcript sent successfully');

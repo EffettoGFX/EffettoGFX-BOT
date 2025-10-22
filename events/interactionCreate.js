@@ -1,4 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
+const discordTranscripts = require('discord-html-transcripts');
 
 module.exports = {
     name: 'interactionCreate',
@@ -188,99 +189,27 @@ async function handleCloseTicket(interaction, db) {
 
         console.log('🔍 [DEBUG] Ticket validation passed, proceeding with transcript generation...');
 
-        // Generate transcript
+        // Generate transcript using discord-html-transcripts
         let transcript;
         try {
             console.log('🔍 [DEBUG] Starting transcript generation for channel:', interaction.channel.id);
             console.log('🔍 [DEBUG] Ticket data:', ticket);
 
-            // Fetch all messages from the channel
-            console.log('🔍 [DEBUG] Fetching messages from channel...');
-            const messages = await interaction.channel.messages.fetch({ limit: 100 });
-            console.log('🔍 [DEBUG] Fetched', messages.size, 'messages');
+            // Generate transcript using discord-html-transcripts
+            console.log('🔍 [DEBUG] Generating HTML transcript with discord-html-transcripts...');
 
-            const sortedMessages = messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-            console.log('🔍 [DEBUG] Sorted messages, count:', sortedMessages.size);
+            const transcriptOptions = {
+                filename: `ticket-${ticket._id}-transcript.html`,
+                saveImages: false, // Set to false to avoid large file sizes
+                returnType: 'buffer', // Return as buffer for Discord upload
+                footerText: `Ticket ${ticket._id} • Closed by ${interaction.user.tag} • Generated on ${new Date().toLocaleString()}`,
+                limit: -1, // Fetch all messages recursively
+                filter: (message) => !message.author.bot // Exclude bot messages from transcript
+            };
 
-            // Create HTML transcript
-            console.log('🔍 [DEBUG] Creating HTML transcript...');
-            let htmlTranscript = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket Transcript - ${ticket._id}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #2c2f33; color: #dcddde; }
-        .header { background: #7289da; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .message { background: #36393f; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #7289da; }
-        .author { font-weight: bold; color: #7289da; margin-bottom: 5px; }
-        .timestamp { color: #99aab5; font-size: 0.9em; }
-        .content { margin-top: 8px; line-height: 1.4; }
-        .attachment { color: #43b581; margin-top: 5px; }
-        .embed { background: #2f3136; padding: 10px; border-radius: 4px; margin-top: 10px; }
-        .embed-title { font-weight: bold; color: #7289da; }
-        .embed-description { margin-top: 5px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🎫 Ticket Transcript</h1>
-        <p><strong>Ticket ID:</strong> ${ticket._id}</p>
-        <p><strong>User:</strong> <@${ticket.user_id}></p>
-        <p><strong>Closed by:</strong> ${interaction.user.tag}</p>
-        <p><strong>Created:</strong> ${new Date(ticket.created_at).toLocaleString()}</p>
-        <p><strong>Closed:</strong> ${new Date().toLocaleString()}</p>
-    </div>
-    <div class="messages">
-`;
-
-            let messageCount = 0;
-            sortedMessages.forEach(msg => {
-                if (!msg.author.bot) {
-                    messageCount++;
-                    console.log(`🔍 [DEBUG] Processing message ${messageCount} from ${msg.author.username}:`, msg.content?.substring(0, 50) + '...');
-
-                    htmlTranscript += `
-        <div class="message">
-            <div class="author">${msg.author.username}</div>
-            <div class="timestamp">${msg.createdAt.toLocaleString()}</div>
-            <div class="content">${msg.content || '<em>No content</em>'}</div>`;
-
-                    // Add attachments
-                    if (msg.attachments.size > 0) {
-                        console.log(`🔍 [DEBUG] Message has ${msg.attachments.size} attachments`);
-                        msg.attachments.forEach(attachment => {
-                            htmlTranscript += `<div class="attachment">📎 ${attachment.name}</div>`;
-                        });
-                    }
-
-                    // Add embeds
-                    if (msg.embeds.length > 0) {
-                        console.log(`🔍 [DEBUG] Message has ${msg.embeds.length} embeds`);
-                        msg.embeds.forEach(embed => {
-                            htmlTranscript += `<div class="embed">`;
-                            if (embed.title) htmlTranscript += `<div class="embed-title">${embed.title}</div>`;
-                            if (embed.description) htmlTranscript += `<div class="embed-description">${embed.description}</div>`;
-                            htmlTranscript += `</div>`;
-                        });
-                    }
-
-                    htmlTranscript += `</div>`;
-                }
-            });
-
-            console.log(`🔍 [DEBUG] Processed ${messageCount} non-bot messages`);
-
-            htmlTranscript += `
-    </div>
-</body>
-</html>`;
-
-            transcript = Buffer.from(htmlTranscript, 'utf8');
-            console.log('🔍 [DEBUG] HTML transcript generated successfully, size:', transcript.length, 'bytes');
-            console.log('🔍 [DEBUG] Transcript preview (first 200 chars):', htmlTranscript.substring(0, 200));
+            transcript = await discordTranscripts.createTranscript(interaction.channel, transcriptOptions);
+            console.log('✅ [SUCCESS] HTML transcript generated successfully with discord-html-transcripts, size:', transcript.length, 'bytes');
+            console.log('🔍 [DEBUG] Transcript filename:', transcriptOptions.filename);
 
         } catch (transcriptError) {
             console.error('❌ [ERROR] Transcript generation error:', transcriptError);
@@ -357,42 +286,15 @@ async function handleCloseTicket(interaction, db) {
                 console.error('❌ [ERROR] Send error details:', sendError.message);
             }
         } else {
-            console.log('🔍 [DEBUG] Creating fallback text transcript...');
-            // Create a simple text transcript as fallback
-            const messages = await interaction.channel.messages.fetch({ limit: 100 });
-            let textTranscript = `# Ticket Transcript\n\n`;
-            textTranscript += `**Ticket ID:** ${ticket._id}\n`;
-            textTranscript += `**User:** <@${ticket.user_id}>\n`;
-            textTranscript += `**Closed by:** ${interaction.user}\n`;
-            textTranscript += `**Created:** <t:${Math.floor(new Date(ticket.created_at).getTime() / 1000)}:F>\n`;
-            textTranscript += `**Closed:** <t:${Math.floor(Date.now() / 1000)}:F>\n\n`;
-            textTranscript += `## Messages:\n\n`;
-
-            messages.reverse().forEach(msg => {
-                if (!msg.author.bot) {
-                    textTranscript += `**${msg.author.username}:** ${msg.content}\n`;
-                    if (msg.attachments.size > 0) {
-                        msg.attachments.forEach(attachment => {
-                            textTranscript += `📎 Attachment: ${attachment.name}\n`;
-                        });
-                    }
-                }
-            });
-
-            console.log('🔍 [DEBUG] Sending text transcript fallback...');
+            console.log('❌ [ERROR] No transcript generated - sending transcript embed without file');
             try {
-                // Send embed with text transcript
-                transcriptEmbed.description = '⚠️ HTML transcript generation failed, but a text transcript is available below.';
+                transcriptEmbed.description = '⚠️ Transcript generation failed, but ticket has been closed.';
                 await transcriptChannel.send({
-                    embeds: [transcriptEmbed],
-                    files: [{
-                        attachment: Buffer.from(textTranscript, 'utf8'),
-                        name: `ticket-${ticket._id}-transcript.txt`
-                    }]
+                    embeds: [transcriptEmbed]
                 });
-                console.log('✅ [SUCCESS] Text transcript sent successfully');
+                console.log('✅ [SUCCESS] Transcript embed sent without file');
             } catch (sendError) {
-                console.error('❌ [ERROR] Failed to send text transcript:', sendError);
+                console.error('❌ [ERROR] Failed to send transcript embed:', sendError);
                 console.error('❌ [ERROR] Send error details:', sendError.message);
             }
         }
