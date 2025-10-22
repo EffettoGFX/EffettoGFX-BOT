@@ -28,9 +28,8 @@ module.exports = {
             const price = interaction.options.getNumber('price');
             const emoji = interaction.options.getString('emoji') || '📦'; // Default emoji if none provided
 
-            // Check if product already exists
-            const existingProducts = await db.getAllProducts();
-            const productExists = existingProducts.some(p => p.name.toLowerCase() === productName.toLowerCase());
+            // Check if product already exists (optimized query)
+            const productExists = await db.productExists(productName);
 
             if (productExists) {
                 return await interaction.reply({

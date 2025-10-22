@@ -1,10 +1,14 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 class Database {
     constructor() {
         this.client = null;
         this.db = null;
         this.isConnected = false;
+        // Cache for products to avoid repeated database calls
+        this.productsCache = null;
+        this.cacheTimestamp = null;
+        this.cacheExpiry = 5 * 60 * 1000; // 5 minutes cache expiry
     }
 
     async connect() {
@@ -17,12 +21,26 @@ class Database {
             }
 
             console.log('🔗 Connecting to MongoDB...');
-            this.client = new MongoClient(uri);
+
+            // Optimized connection options for better performance
+            const options = {
+                maxPoolSize: 10, // Maintain up to 10 socket connections
+                serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+                socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+                maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+                minPoolSize: 2 // Maintain at least 2 socket connections
+            };
+
+            this.client = new MongoClient(uri, options);
 
             await this.client.connect();
             this.db = this.client.db('Effetto');
             this.isConnected = true;
-            console.log('✅ Connected to MongoDB');
+
+            // Create indexes for better performance
+            await this.createIndexes();
+
+            console.log('✅ Connected to MongoDB with optimized settings');
         } catch (error) {
             console.error('❌ MongoDB connection error:', error);
             throw error;
@@ -34,6 +52,46 @@ class Database {
             await this.client.close();
             this.isConnected = false;
             console.log('🔌 Disconnected from MongoDB');
+        }
+    }
+
+    // Create database indexes for better performance
+    async createIndexes() {
+        try {
+            console.log('📊 Creating database indexes...');
+
+            // Products collection indexes
+            const products = this.db.collection('products');
+            await products.createIndex({ name: 1 }, { unique: true });
+            await products.createIndex({ created_at: -1 });
+
+            // Tickets collection indexes
+            const tickets = this.db.collection('tickets');
+            await tickets.createIndex({ channel_id: 1 }, { unique: true });
+            await tickets.createIndex({ user_id: 1 });
+            await tickets.createIndex({ status: 1 });
+            await tickets.createIndex({ created_at: -1 });
+
+            // Reviews collection indexes
+            const reviews = this.db.collection('reviews');
+            await reviews.createIndex({ user_id: 1 });
+            await reviews.createIndex({ product_name: 1 });
+            await reviews.createIndex({ status: 1 });
+            await reviews.createIndex({ created_at: -1 });
+            await reviews.createIndex({ product_name: 1, status: 1 });
+
+            // Review authorizations collection indexes
+            const authorizations = this.db.collection('review_authorizations');
+            await authorizations.createIndex({ user_id: 1 }, { unique: true });
+
+            // Bot config collection indexes
+            const config = this.db.collection('bot_config');
+            await config.createIndex({ key: 1 }, { unique: true });
+
+            console.log('✅ Database indexes created successfully');
+        } catch (error) {
+            console.error('❌ Error creating database indexes:', error);
+            // Don't throw error as indexes might already exist
         }
     }
 
@@ -100,6 +158,7 @@ class Database {
         };
 
         const result = await reviews.insertOne(review);
+        console.log(`✅ [SUCCESS] Review created with ID: ${result.insertedId}`);
         return result.insertedId;
     }
 
@@ -108,12 +167,24 @@ class Database {
         return await reviews.find({
             product_name: productName,
             status: 'approved'
-        }).toArray();
+        }).sort({ created_at: -1 }).toArray();
     }
 
     async getAllReviews() {
         const reviews = this.db.collection('reviews');
         return await reviews.find({}).sort({ created_at: -1 }).toArray();
+    }
+
+    async getReviewById(reviewId) {
+        const reviews = this.db.collection('reviews');
+        try {
+            // Convert string ID to ObjectId for proper database query
+            const objectId = new ObjectId(reviewId);
+            return await reviews.findOne({ _id: objectId });
+        } catch (error) {
+            console.error('❌ [ERROR] Invalid review ID format:', reviewId, error);
+            return null;
+        }
     }
 
     async updateReviewStatus(reviewId, status, approvedBy = null) {
@@ -125,10 +196,17 @@ class Database {
             updateData.approved_at = new Date();
         }
 
-        return await reviews.updateOne(
-            { _id: reviewId },
-            { $set: updateData }
-        );
+        try {
+            // Convert string ID to ObjectId for proper database query
+            const objectId = new ObjectId(reviewId);
+            return await reviews.updateOne(
+                { _id: objectId },
+                { $set: updateData }
+            );
+        } catch (error) {
+            console.error('❌ [ERROR] Invalid review ID format for update:', reviewId, error);
+            throw error;
+        }
     }
 
     // Product methods
@@ -142,17 +220,56 @@ class Database {
         };
 
         const result = await products.insertOne(product);
+
+        // Invalidate cache when product is added
+        this.invalidateProductsCache();
+
         return result.insertedId;
     }
 
     async removeProduct(name) {
         const products = this.db.collection('products');
-        return await products.deleteOne({ name: name });
+        const result = await products.deleteOne({ name: name });
+
+        // Invalidate cache when product is removed
+        this.invalidateProductsCache();
+
+        return result;
     }
 
     async getAllProducts() {
+        // Check if cache is still valid
+        if (this.productsCache && this.cacheTimestamp &&
+            (Date.now() - this.cacheTimestamp) < this.cacheExpiry) {
+            return this.productsCache;
+        }
+
         const products = this.db.collection('products');
-        return await products.find({}).sort({ name: 1 }).toArray();
+        // Use projection to only fetch needed fields and sort by name index
+        const result = await products.find({}, {
+            projection: { _id: 1, name: 1, price: 1, emoji: 1, created_at: 1 }
+        }).sort({ name: 1 }).toArray();
+
+        // Update cache
+        this.productsCache = result;
+        this.cacheTimestamp = Date.now();
+
+        return result;
+    }
+
+    // Cache management methods
+    invalidateProductsCache() {
+        this.productsCache = null;
+        this.cacheTimestamp = null;
+    }
+
+    // Optimized product existence check
+    async productExists(name) {
+        const products = this.db.collection('products');
+        const product = await products.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } }, {
+            projection: { _id: 1 }
+        });
+        return !!product;
     }
 
     // Authorization methods

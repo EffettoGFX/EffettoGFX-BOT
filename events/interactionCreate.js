@@ -1,12 +1,12 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 
 module.exports = {
     name: 'interactionCreate',
     async execute(interaction, db) {
         // Handle slash commands
         if (interaction.isChatInputCommand()) {
-            const { client } = require('../index');
-            const command = client.commands.get(interaction.commandName);
+            // Get client from interaction
+            const command = interaction.client.commands.get(interaction.commandName);
 
             if (!command) {
                 console.error(`❌ [ERROR] No command matching ${interaction.commandName} was found.`);
@@ -14,6 +14,7 @@ module.exports = {
             }
 
             console.log('🔍 [DEBUG] Executing command:', interaction.commandName);
+
             try {
                 await command.execute(interaction, db);
                 console.log('✅ [SUCCESS] Command executed successfully:', interaction.commandName);
@@ -21,15 +22,20 @@ module.exports = {
                 console.error(`❌ [ERROR] Error executing ${interaction.commandName}:`, error);
                 console.error('❌ [ERROR] Stack trace:', error.stack);
 
-                const errorMessage = {
-                    content: '❌ There was an error while executing this command!',
-                    flags: 64
-                };
+                // Send error message
+                try {
+                    const errorMessage = {
+                        content: '❌ There was an error while executing this command!',
+                        flags: MessageFlags.Ephemeral
+                    };
 
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp(errorMessage);
-                } else {
-                    await interaction.reply(errorMessage);
+                    if (interaction.deferred) {
+                        await interaction.followUp(errorMessage);
+                    } else if (!interaction.replied) {
+                        await interaction.reply(errorMessage);
+                    }
+                } catch (replyError) {
+                    console.error('❌ [ERROR] Failed to send error message:', replyError);
                 }
             }
             return;
@@ -68,25 +74,47 @@ module.exports = {
                     await handleOpenTicket(interaction, db);
                 } else if (interaction.customId === 'delete_ticket_channel') {
                     await handleDeleteTicketChannel(interaction, db);
+                } else if (interaction.customId.startsWith('approve_review_')) {
+                    await handleApproveReview(interaction, db);
+                } else if (interaction.customId.startsWith('reject_review_')) {
+                    await handleRejectReview(interaction, db);
                 }
             }
 
             // Handle review product selection
             if (interaction.isStringSelectMenu()) {
-                if (interaction.customId === 'select_product') {
-                    await handleProductSelection(interaction, db);
-                } else if (interaction.customId === 'select_rating') {
-                    await handleRatingSelection(interaction, db);
+                try {
+                    if (interaction.customId === 'select_product') {
+                        await handleProductSelection(interaction, db);
+                    } else if (interaction.customId === 'select_rating') {
+                        await handleRatingSelection(interaction, db);
+                    }
+                } catch (error) {
+                    console.error('Select menu interaction error:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        try {
+                            await interaction.reply({
+                                content: '❌ An error occurred while processing your selection.',
+                                flags: MessageFlags.Ephemeral
+                            });
+                        } catch (replyError) {
+                            console.error('Failed to send error message:', replyError);
+                        }
+                    }
                 }
             }
 
         } catch (error) {
             console.error('Interaction create error:', error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({
-                    content: '❌ An error occurred while processing your request.',
-                    flags: 64
-                });
+                try {
+                    await interaction.reply({
+                        content: '❌ An error occurred while processing your request.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                } catch (replyError) {
+                    console.error('Failed to send error message:', replyError);
+                }
             }
         }
     }
@@ -98,21 +126,21 @@ async function handleClaimTicket(interaction, db) {
     if (!ticket) {
         return await interaction.reply({
             content: '❌ This is not a valid ticket channel!',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 
     if (ticket.status !== 'open') {
         return await interaction.reply({
             content: '❌ This ticket is not open!',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 
     if (ticket.claimed_by) {
         return await interaction.reply({
             content: `❌ This ticket is already claimed by <@${ticket.claimed_by}>!`,
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 
@@ -146,7 +174,7 @@ async function handleCloseTicket(interaction, db) {
             console.log('❌ [ERROR] No ticket found for channel');
             return await interaction.reply({
                 content: '❌ This is not a valid ticket channel!',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -154,7 +182,7 @@ async function handleCloseTicket(interaction, db) {
             console.log('❌ [ERROR] Ticket already closed');
             return await interaction.reply({
                 content: '❌ This ticket is already closed!',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -271,7 +299,7 @@ async function handleCloseTicket(interaction, db) {
             console.log('❌ [ERROR] No transcript channel configured');
             return await interaction.reply({
                 content: '❌ Transcript channel not configured! Use /setup first.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -283,7 +311,7 @@ async function handleCloseTicket(interaction, db) {
             console.log('❌ [ERROR] Transcript channel not found in guild');
             return await interaction.reply({
                 content: '❌ Transcript channel not found!',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -401,7 +429,7 @@ async function handleCloseTicket(interaction, db) {
         console.error('❌ [ERROR] Stack trace:', error.stack);
         await interaction.reply({
             content: '❌ An error occurred while closing the ticket.',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -412,14 +440,14 @@ async function handleReopenTicket(interaction, db) {
     if (!ticket) {
         return await interaction.reply({
             content: '❌ This is not a valid ticket channel!',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 
     if (ticket.status !== 'closed') {
         return await interaction.reply({
             content: '❌ This ticket is not closed!',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 
@@ -449,7 +477,7 @@ async function handleOpenTicket(interaction, db) {
         if (existingTickets.length > 0) {
             return await interaction.reply({
                 content: '❌ You already have an open ticket! Please wait for it to be resolved before opening a new one.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -532,14 +560,14 @@ async function handleOpenTicket(interaction, db) {
 
         await interaction.reply({
             content: `✅ Your ticket has been created: ${ticketChannel}`,
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
 
     } catch (error) {
         console.error('Open ticket error:', error);
         await interaction.reply({
             content: '❌ An error occurred while creating your ticket.',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -550,7 +578,7 @@ async function handleDeleteTicketChannel(interaction, db) {
         if (!interaction.member.permissions.has('ManageChannels')) {
             return await interaction.reply({
                 content: '❌ You do not have permission to delete this channel.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -559,7 +587,7 @@ async function handleDeleteTicketChannel(interaction, db) {
         if (!ticket) {
             return await interaction.reply({
                 content: '❌ This is not a valid ticket channel!',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -585,7 +613,7 @@ async function handleDeleteTicketChannel(interaction, db) {
         console.error('Delete ticket channel error:', error);
         await interaction.reply({
             content: '❌ An error occurred while deleting the channel.',
-            flags: 64
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -593,12 +621,19 @@ async function handleDeleteTicketChannel(interaction, db) {
 async function handleProductSelection(interaction, db) {
     const productName = interaction.values[0];
 
-    // Get product details to show emoji
+    // Get product details to show emoji (this will use cache if available)
     const products = await db.getAllProducts();
     const selectedProduct = products.find(p => p.name === productName);
     const emoji = selectedProduct?.emoji || '📦';
 
-    // Create rating selection menu
+    // Store product selection temporarily
+    interaction.client.tempReviewData = interaction.client.tempReviewData || new Map();
+    interaction.client.tempReviewData.set(interaction.user.id, {
+        product: productName,
+        emoji: emoji
+    });
+
+    // Create Phase 2 Select Menu - Star Rating
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('select_rating')
         .setPlaceholder('Choose a rating (1-5 stars)')
@@ -616,38 +651,82 @@ async function handleProductSelection(interaction, db) {
 
     const embed = new EmbedBuilder()
         .setColor(0x770380)
-        .setTitle('⭐ Rate Your Experience')
+        .setTitle('⭐ Phase 2: Rate Your Experience')
         .setDescription(`You selected: **${emoji} ${productName}**\n\nPlease rate your experience with this product.`)
         .setFooter({ text: 'Your rating will be saved and may be reviewed by staff' });
 
-    await interaction.update({
-        embeds: [embed],
-        components: [row]
-    });
+    try {
+        await interaction.update({
+            embeds: [embed],
+            components: [row]
+        });
+    } catch (error) {
+        console.error('Product selection update error:', error);
+        // If update fails, try to reply instead
+        if (!interaction.replied && !interaction.deferred) {
+            try {
+                await interaction.reply({
+                    content: '❌ An error occurred while processing your selection.',
+                    flags: MessageFlags.Ephemeral,
+                    ephemeral: true
+                });
+            } catch (replyError) {
+                console.error('Failed to send error message:', replyError);
+            }
+        }
+    }
 }
 
 async function handleRatingSelection(interaction, db) {
     const rating = parseInt(interaction.values[0]);
 
-    // Store the rating and product for the description step
-    const embed = new EmbedBuilder()
-        .setColor(0x770380)
-        .setTitle('📝 Write Your Review')
-        .setDescription(`Please write a description of your experience with this product.\n\n**Rating:** ${'⭐'.repeat(rating)}\n\nType your review in the chat and I'll save it.`)
-        .setFooter({ text: 'Your review will be submitted for staff approval' });
+    // Get stored product data
+    const tempData = interaction.client.tempReviewData?.get(interaction.user.id);
+    if (!tempData) {
+        return await interaction.reply({
+            content: '❌ Session expired. Please start the review process again with `/review`.',
+            flags: MessageFlags.Ephemeral,
+            ephemeral: true
+        });
+    }
 
-    await interaction.update({
-        embeds: [embed],
-        components: []
-    });
+    // Update temp data with rating
+    tempData.rating = rating;
+    interaction.client.tempReviewData.set(interaction.user.id, tempData);
 
-    // Store the review data temporarily (in a real implementation, you'd use a more robust storage)
-    interaction.client.tempReviewData = interaction.client.tempReviewData || new Map();
-    interaction.client.tempReviewData.set(interaction.user.id, {
-        product: interaction.message.embeds[0].description.match(/\*\*(.*?)\*\*/)[1],
-        rating: rating,
-        userId: interaction.user.id
-    });
+    // Create Phase 3 Modal - Description
+    const modal = new ModalBuilder()
+        .setCustomId('review_phase3_modal')
+        .setTitle('⭐ Phase 3: Describe Your Experience');
+
+    const descriptionInput = new TextInputBuilder()
+        .setCustomId('review_description')
+        .setLabel('Describe your experience:')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Share your thoughts about the product...')
+        .setRequired(true)
+        .setMaxLength(1000);
+
+    const actionRow = new ActionRowBuilder().addComponents(descriptionInput);
+    modal.addComponents(actionRow);
+
+    try {
+        await interaction.showModal(modal);
+    } catch (error) {
+        console.error('Rating selection modal error:', error);
+        // If showModal fails, try to reply instead
+        if (!interaction.replied && !interaction.deferred) {
+            try {
+                await interaction.reply({
+                    content: '❌ An error occurred while showing the review form.',
+                    flags: MessageFlags.Ephemeral,
+                    ephemeral: true
+                });
+            } catch (replyError) {
+                console.error('Failed to send error message:', replyError);
+            }
+        }
+    }
 }
 
 // New 3-Phase Review System
@@ -662,7 +741,7 @@ async function handleReviewPhase1(interaction, db) {
         if (!product) {
             return await interaction.reply({
                 content: `❌ Product "${selectedProduct}" not found. Please check the spelling and try again.`,
-                flags: 64,
+                flags: MessageFlags.Ephemeral,
                 ephemeral: true
             });
         }
@@ -696,7 +775,7 @@ async function handleReviewPhase1(interaction, db) {
         console.error('Review Phase 1 error:', error);
         await interaction.reply({
             content: '❌ An error occurred in Phase 1.',
-            flags: 64,
+            flags: MessageFlags.Ephemeral,
             ephemeral: true
         });
     }
@@ -711,7 +790,7 @@ async function handleReviewPhase2(interaction, db) {
         if (isNaN(rating) || rating < 0.5 || rating > 5.0) {
             return await interaction.reply({
                 content: '❌ Invalid rating. Please enter a number between 0.5 and 5.0 (e.g., 4.5).',
-                flags: 64,
+                flags: MessageFlags.Ephemeral,
                 ephemeral: true
             });
         }
@@ -721,7 +800,7 @@ async function handleReviewPhase2(interaction, db) {
         if (!tempData) {
             return await interaction.reply({
                 content: '❌ Session expired. Please start the review process again with `/reviews`.',
-                flags: 64,
+                flags: MessageFlags.Ephemeral,
                 ephemeral: true
             });
         }
@@ -752,7 +831,7 @@ async function handleReviewPhase2(interaction, db) {
         console.error('Review Phase 2 error:', error);
         await interaction.reply({
             content: '❌ An error occurred in Phase 2.',
-            flags: 64,
+            flags: MessageFlags.Ephemeral,
             ephemeral: true
         });
     }
@@ -767,18 +846,87 @@ async function handleReviewPhase3(interaction, db) {
         if (!tempData) {
             return await interaction.reply({
                 content: '❌ Session expired. Please start the review process again with `/reviews`.',
-                flags: 64,
+                flags: MessageFlags.Ephemeral,
                 ephemeral: true
             });
         }
 
         // Create the review
-        await db.createReview(interaction.user.id, tempData.product, tempData.rating, description);
+        const reviewId = await db.createReview(interaction.user.id, tempData.product, tempData.rating, description);
+
+        // Get review approval channel from config
+        const reviewApprovalChannelId = await db.getConfig('review_approval_channel');
+
+        if (reviewApprovalChannelId) {
+            const reviewApprovalChannel = interaction.guild.channels.cache.get(reviewApprovalChannelId);
+            if (reviewApprovalChannel) {
+                // Create review embed for the channel
+                const stars = '⭐'.repeat(Math.floor(tempData.rating)) + (tempData.rating % 1 === 0.5 ? '⭐' : '');
+                const reviewEmbed = new EmbedBuilder()
+                    .setColor(0x770380)
+                    .setTitle('⭐ New Review Submitted')
+                    .setDescription(`A new review has been submitted and is pending approval.`)
+                    .addFields(
+                        {
+                            name: '👤 Reviewer',
+                            value: `<@${interaction.user.id}>`,
+                            inline: true
+                        },
+                        {
+                            name: '🛍️ Product',
+                            value: `${tempData.emoji} ${tempData.product}`,
+                            inline: true
+                        },
+                        {
+                            name: '⭐ Rating',
+                            value: `${stars} (${tempData.rating}/5)`,
+                            inline: true
+                        },
+                        {
+                            name: '📝 Description',
+                            value: description,
+                            inline: false
+                        },
+                        {
+                            name: '🆔 Review ID',
+                            value: reviewId.toString(),
+                            inline: true
+                        },
+                        {
+                            name: '📅 Submitted',
+                            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                            inline: true
+                        }
+                    )
+                    .setFooter({ text: 'Review pending staff approval' })
+                    .setTimestamp();
+
+                // Create approval buttons
+                const approveButton = new ButtonBuilder()
+                    .setCustomId(`approve_review_${reviewId}`)
+                    .setLabel('Approve')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('✅');
+
+                const rejectButton = new ButtonBuilder()
+                    .setCustomId(`reject_review_${reviewId}`)
+                    .setLabel('Reject')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('❌');
+
+                const buttonRow = new ActionRowBuilder().addComponents(approveButton, rejectButton);
+
+                await reviewApprovalChannel.send({
+                    embeds: [reviewEmbed],
+                    components: [buttonRow]
+                });
+            }
+        }
 
         // Clear temp data
         interaction.client.tempReviewData.delete(interaction.user.id);
 
-        // Create confirmation embed
+        // Create confirmation embed for user
         const stars = '⭐'.repeat(Math.floor(tempData.rating)) + (tempData.rating % 1 === 0.5 ? '⭐' : '');
         const embed = new EmbedBuilder()
             .setColor(0x00ff00)
@@ -806,15 +954,195 @@ async function handleReviewPhase3(interaction, db) {
 
         await interaction.reply({
             embeds: [embed],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
 
     } catch (error) {
         console.error('Review Phase 3 error:', error);
         await interaction.reply({
             content: '❌ An error occurred while submitting your review.',
-            flags: 64,
+            flags: MessageFlags.Ephemeral,
             ephemeral: true
         });
+    }
+}
+
+async function handleApproveReview(interaction, db) {
+    try {
+        // Defer the interaction first to prevent timeout issues
+        await interaction.deferReply({ ephemeral: true });
+
+        // Check if user has permission to approve reviews
+        if (!interaction.member.permissions.has('Administrator')) {
+            return await interaction.editReply({
+                content: '❌ You do not have permission to approve reviews.'
+            });
+        }
+
+        const reviewId = interaction.customId.replace('approve_review_', '');
+        console.log(`🔍 [DEBUG] Processing approval for review ID: ${reviewId}`);
+
+        // Update review status in database
+        console.log(`🔍 [DEBUG] Updating review status to approved...`);
+        const updateResult = await db.updateReviewStatus(reviewId, 'approved', interaction.user.id);
+        console.log(`🔍 [DEBUG] Update result:`, updateResult);
+
+        // Get the review data to post to review channel
+        console.log(`🔍 [DEBUG] Fetching review data...`);
+        const review = await db.getReviewById(reviewId);
+        console.log(`🔍 [DEBUG] Review data:`, review ? 'Found' : 'Not found');
+
+        if (review) {
+            console.log(`🔍 [DEBUG] Processing review approval for review ID: ${reviewId}`);
+
+            // Get review channel from config
+            const reviewChannelId = await db.getConfig('review_channel');
+            console.log(`🔍 [DEBUG] Review channel ID from config: ${reviewChannelId}`);
+
+            if (reviewChannelId) {
+                const reviewChannel = interaction.guild.channels.cache.get(reviewChannelId);
+                console.log(`🔍 [DEBUG] Review channel found: ${reviewChannel ? reviewChannel.name : 'NOT FOUND'}`);
+
+                if (reviewChannel) {
+                    try {
+                        // Get product details (using cached version for better performance)
+                        const products = await db.getAllProducts();
+                        const product = products.find(p => p.name === review.product_name);
+                        const emoji = product?.emoji || '📦';
+                        const price = product?.price ? `€${product.price.toFixed(2)}` : 'Price TBD';
+
+                        // Create enhanced approved review embed for public channel
+                        const stars = '⭐'.repeat(Math.floor(review.rating));
+                        const hasHalfStar = review.rating % 1 !== 0;
+                        const starDisplay = stars + (hasHalfStar ? '⭐' : '');
+
+                        const publicReviewEmbed = new EmbedBuilder()
+                            .setColor(0x00ff00)
+                            .setTitle('⭐ New Customer Review')
+                            .setDescription(`A customer has shared their experience with **${emoji} ${review.product_name}**`)
+                            .addFields(
+                                {
+                                    name: '👤 Customer',
+                                    value: `<@${review.user_id}>`,
+                                    inline: true
+                                },
+                                {
+                                    name: '⭐ Rating',
+                                    value: `${starDisplay} **${review.rating}/5**`,
+                                    inline: true
+                                },
+                                {
+                                    name: '💰 Price',
+                                    value: price,
+                                    inline: true
+                                },
+                                {
+                                    name: '📝 Customer Review',
+                                    value: review.description,
+                                    inline: false
+                                }
+                            )
+                            .setFooter({
+                                text: `Review approved by ${interaction.user.tag} • Review ID: ${reviewId}`
+                            })
+                            .setTimestamp();
+
+                        console.log(`🔍 [DEBUG] Sending review embed to channel: ${reviewChannel.name}`);
+
+                        await reviewChannel.send({
+                            embeds: [publicReviewEmbed]
+                        });
+
+                        console.log(`✅ [SUCCESS] Review embed sent successfully to review channel`);
+
+                        // Send a success notification to the approval channel
+                        console.log(`✅ [SUCCESS] Review successfully posted to review channel`);
+
+                    } catch (embedError) {
+                        console.error('❌ [ERROR] Failed to send review embed:', embedError);
+                        console.error('❌ [ERROR] Error details:', embedError.message);
+
+                        // Send error notification
+                        console.error(`❌ [ERROR] Failed to post review to the review channel. Error: ${embedError.message}`);
+                    }
+                } else {
+                    console.error('❌ [ERROR] Review channel not found in guild');
+                }
+            } else {
+                console.error('❌ [ERROR] No review channel configured');
+            }
+        } else {
+            console.error('❌ [ERROR] Review not found for ID:', reviewId);
+        }
+
+        // Update the embed to show approval
+        const approvedEmbed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('✅ Review Approved')
+            .setDescription(`This review has been approved and is now public.`)
+            .setFooter({ text: `Approved by ${interaction.user.tag}` })
+            .setTimestamp();
+
+        await interaction.editReply({
+            embeds: [approvedEmbed],
+            components: []
+        });
+
+    } catch (error) {
+        console.error('❌ [ERROR] Approve review error:', error);
+        console.error('❌ [ERROR] Stack trace:', error.stack);
+
+        // Since we deferred the interaction, we can always use editReply
+        try {
+            await interaction.editReply({
+                content: '❌ An error occurred while approving the review. Please try again or contact an administrator.'
+            });
+        } catch (replyError) {
+            console.error('❌ [ERROR] Failed to send error message:', replyError);
+        }
+    }
+}
+
+async function handleRejectReview(interaction, db) {
+    try {
+        // Defer the interaction first to prevent timeout issues
+        await interaction.deferReply({ ephemeral: true });
+
+        // Check if user has permission to reject reviews
+        if (!interaction.member.permissions.has('Administrator')) {
+            return await interaction.editReply({
+                content: '❌ You do not have permission to reject reviews.'
+            });
+        }
+
+        const reviewId = interaction.customId.replace('reject_review_', '');
+
+        // Update review status in database
+        await db.updateReviewStatus(reviewId, 'rejected', interaction.user.id);
+
+        // Update the embed to show rejection
+        const rejectedEmbed = new EmbedBuilder()
+            .setColor(0xff0000)
+            .setTitle('❌ Review Rejected')
+            .setDescription(`This review has been rejected and will not be published.`)
+            .setFooter({ text: `Rejected by ${interaction.user.tag}` })
+            .setTimestamp();
+
+        await interaction.editReply({
+            embeds: [rejectedEmbed],
+            components: []
+        });
+
+    } catch (error) {
+        console.error('❌ [ERROR] Reject review error:', error);
+        console.error('❌ [ERROR] Stack trace:', error.stack);
+
+        try {
+            await interaction.editReply({
+                content: '❌ An error occurred while rejecting the review. Please try again or contact an administrator.'
+            });
+        } catch (replyError) {
+            console.error('❌ [ERROR] Failed to send error message:', replyError);
+        }
     }
 }

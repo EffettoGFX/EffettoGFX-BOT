@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,7 +13,7 @@ module.exports = {
             if (products.length === 0) {
                 return await interaction.reply({
                     content: '❌ No products available.',
-                    flags: 64
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -38,7 +38,7 @@ module.exports = {
             console.error('ListProducts command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while listing products.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
     }

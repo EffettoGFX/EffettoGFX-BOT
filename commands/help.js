@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -26,7 +26,7 @@ module.exports = {
                 },
                 {
                     name: '⭐ Review Commands',
-                    value: '`/review` - Leave a review for a product (3-phase modal)',
+                    value: '`/review` - Leave a review for a product (3-phase system)\n`/authorizereview` - Authorize user to leave reviews (Admin only)\n`/deauthorizereview` - Remove review authorization (Admin only)',
                     inline: false
                 },
                 {
@@ -51,12 +51,12 @@ module.exports = {
                 embed.addFields(
                     {
                         name: '🔧 Admin Commands',
-                        value: '`/setup` - Configure bot settings\n`/addproduct` - Add a new product\n`/removeproduct` - Remove a product\n`/authorizereview` - Authorize user to leave reviews\n`/deauthorizereview` - Remove review authorization',
+                        value: '`/setup` - Configure bot settings (including review channel)\n`/addproduct` - Add a new product with emoji\n`/removeproduct` - Remove a product\n`/authorizereview` - Authorize user to leave reviews\n`/deauthorizereview` - Remove review authorization',
                         inline: false
                     },
                     {
                         name: '👮 Staff Commands',
-                        value: '`/claim` - Claim a ticket\n`/close` - Close a ticket\n`/reopen` - Reopen a closed ticket',
+                        value: '`/claim` - Claim a ticket\n`/close` - Close a ticket\n`/reopen` - Reopen a closed ticket\n**Review Management** - Approve/reject reviews in review channel',
                         inline: false
                     }
                 );
@@ -66,21 +66,21 @@ module.exports = {
             embed.addFields({
                 name: '📋 How to Use',
                 value: isAdmin
-                    ? '• Use `/ticket` to open a support ticket\n• Use `/reviews` to leave a product review\n• Use `/listproducts` to see available products\n• Use `/setup` to configure bot settings\n• Use admin commands to manage the system'
-                    : '• Use `/ticket` to open a support ticket\n• Use `/reviews` to leave a product review\n• Use `/listproducts` to see available products\n• Contact staff for authorization to leave reviews',
+                    ? '• Use `/ticket` to open a support ticket\n• Use `/review` to leave a product review (3-phase system)\n• Use `/listproducts` to see available products\n• Use `/setup` to configure bot settings and review channel\n• Use admin commands to manage the system\n• Approve/reject reviews in the review channel'
+                    : '• Use `/ticket` to open a support ticket\n• Use `/review` to leave a product review (3-phase system)\n• Use `/listproducts` to see available products\n• Contact staff for authorization to leave reviews',
                 inline: false
             });
 
             await interaction.reply({
                 embeds: [embed],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
 
         } catch (error) {
             console.error('Help command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while showing help information.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
     }

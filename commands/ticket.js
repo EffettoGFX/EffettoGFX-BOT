@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +15,7 @@ module.exports = {
             if (existingTicket && existingTicket.status === 'open') {
                 return await interaction.reply({
                     content: '❌ You already have an open ticket in this channel!',
-                    flags: 64
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -98,14 +98,14 @@ module.exports = {
 
             await interaction.reply({
                 content: `✅ Your ticket has been created: ${ticketChannel}`,
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
 
         } catch (error) {
             console.error('Ticket command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while creating your ticket.',
-                flags: 64
+                flags: MessageFlags.Ephemeral
             });
         }
     }

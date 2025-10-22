@@ -15,9 +15,8 @@ module.exports = {
         try {
             const productName = interaction.options.getString('name');
 
-            // Check if product exists
-            const existingProducts = await db.getAllProducts();
-            const productExists = existingProducts.some(p => p.name.toLowerCase() === productName.toLowerCase());
+            // Check if product exists (optimized query)
+            const productExists = await db.productExists(productName);
 
             if (!productExists) {
                 return await interaction.reply({
